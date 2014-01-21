@@ -35,8 +35,7 @@ modules/*
 !modules/phydemo
 !modules/projection_test
 
-MacOS/include
-MacOS/lib
+MacOS
 xcuserdata
 project.xcworkspace
 
