@@ -148,6 +148,7 @@ protected:
 void output_backtrace()
 {
 	std::cerr << get_call_stack() << "\n";
+	return;
 
 	std::cerr << "---\n";
 #ifdef _MSC_VER
