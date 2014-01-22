@@ -747,6 +747,15 @@
     <ClInclude Include="..\..\src\psystem2_observers.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\colorshift_hash_table.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\load_level.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\bar_widget.cpp">
@@ -1427,6 +1436,12 @@
     <ClCompile Include="..\..\src\psystem2_observers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\colorshift_hash_table.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\load_level.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\..\src\anura-resouces.rc">
@@ -1435,14 +1450,5 @@
   </ItemGroup>
   <ItemGroup>
     <Library Include="Release\lua.lib" />
-    <Library Include="c:\projects\Box2D_v2.2.1\Build\vs2010\bin\Release\Box2D.lib" />
-    <Library Include="c:\projects\glew-1.9.0\lib\glew32s.lib" />
-    <Library Include="c:\projects\lpng160\libpng.lib" />
-    <Library Include="c:\projects\SDL\VisualC\SDLmain\Win32\Release\SDL2main.lib" />
-    <Library Include="c:\projects\SDL\VisualC\SDL\Win32\Release\SDL2.lib" />
-    <Library Include="c:\projects\SDL_image\VisualC\Win32\Release\SDL2_image.lib" />
-    <Library Include="c:\projects\SDL_mixer\VisualC\Release\SDL2_mixer.lib" />
-    <Library Include="c:\projects\SDL_ttf\VisualC\Win32\Release\SDL2_ttf.lib" />
-    <Library Include="c:\projects\zlib\zlib.lib" />
   </ItemGroup>
 </Project>

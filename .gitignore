@@ -1,5 +1,5 @@
 game
-anura
+#anura
 server
 test
 .DS_Store
@@ -21,7 +21,7 @@ test
 dirs.txt
 /core
 /core.*
-*.exe
+#*.exe
 *.d
 compiled-*
 tiles-compiled-*
