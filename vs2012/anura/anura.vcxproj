@@ -179,7 +179,6 @@
     <ClInclude Include="..\..\src\code_editor_dialog.hpp" />
     <ClInclude Include="..\..\src\code_editor_widget.hpp" />
     <ClInclude Include="..\..\src\collision_utils.hpp" />
-    <ClInclude Include="..\..\src\colorshift_hash_table.hpp" />
     <ClInclude Include="..\..\src\color_chart.hpp" />
     <ClInclude Include="..\..\src\color_utils.hpp" />
     <ClInclude Include="..\..\src\compat.hpp" />
@@ -429,7 +428,6 @@
     <ClCompile Include="..\..\src\code_editor_dialog.cpp" />
     <ClCompile Include="..\..\src\code_editor_widget.cpp" />
     <ClCompile Include="..\..\src\collision_utils.cpp" />
-    <ClCompile Include="..\..\src\colorshift_hash_table.cpp" />
     <ClCompile Include="..\..\src\color_chart.cpp" />
     <ClCompile Include="..\..\src\color_utils.cpp" />
     <ClCompile Include="..\..\src\compress.cpp" />
@@ -512,7 +510,6 @@
     <ClCompile Include="..\..\src\level_solid_map.cpp" />
     <ClCompile Include="..\..\src\light.cpp" />
     <ClCompile Include="..\..\src\loading_screen.cpp" />
-    <ClCompile Include="..\..\src\load_level.cpp" />
     <ClCompile Include="..\..\src\load_level_nothread.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
     <ClCompile Include="..\..\src\md5.cpp" />

@@ -747,9 +747,6 @@
     <ClInclude Include="..\..\src\psystem2_observers.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\colorshift_hash_table.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\load_level.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -1434,12 +1431,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\psystem2_observers.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\colorshift_hash_table.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\load_level.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
