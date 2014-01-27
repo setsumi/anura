@@ -569,6 +569,7 @@
     <ClCompile Include="..\..\src\tbs_game.cpp" />
     <ClCompile Include="..\..\src\tbs_internal_client.cpp" />
     <ClCompile Include="..\..\src\tbs_internal_server.cpp" />
+    <ClCompile Include="..\..\src\tbs_matchmaking_server.cpp" />
     <ClCompile Include="..\..\src\tbs_server.cpp" />
     <ClCompile Include="..\..\src\tbs_server_base.cpp" />
     <ClCompile Include="..\..\src\tbs_web_server.cpp" />
