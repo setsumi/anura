@@ -36,6 +36,7 @@ modules/*
 !modules/projection_test
 
 MacOS
+savedata
 xcuserdata
 project.xcworkspace
 

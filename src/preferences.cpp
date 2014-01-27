@@ -95,11 +95,13 @@ class WindowsPrefs
 
 std::string GetAppDataPath() {
 	char szPath[ MAX_PATH ];
-	if(SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, szPath))) 
+	strcpy(szPath, "./savedata");
+	return std::string(szPath);
+/*	if(SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, szPath))) 
 	{
 		return std::string(szPath);
 	}
-	return std::string();
+	return std::string(); */
 }
 
 bool WindowsPrefs::MDestroyed = false;
