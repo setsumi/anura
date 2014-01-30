@@ -50,11 +50,18 @@ endif
 USE_LUA?=$(shell pkg-config --exists lua5.2 && echo yes)
 
 # Initial compiler options, used before CXXFLAGS and CPPFLAGS.
-BASE_CXXFLAGS += -std=c++0x -g -rdynamic -fno-inline-functions -fthreadsafe-statics -Wnon-virtual-dtor -Werror -Wignored-qualifiers -Wformat -Wswitch -Wreturn-type -DUSE_SHADERS -DUTILITY_IN_PROC -DUSE_ISOMAP -Wno-narrowing -Wno-literal-suffix
-# -Wno-error=narrowing 
+BASE_CXXFLAGS += -std=c++0x -g -rdynamic -fno-inline-functions \
+	-fthreadsafe-statics -Wnon-virtual-dtor -Werror \
+	-Wignored-qualifiers -Wformat -Wswitch -Wreturn-type \
+	-DUSE_SHADERS -DUTILITY_IN_PROC -DUSE_ISOMAP \
+	-Wno-narrowing -Wno-literal-suffix
 
 # Compiler include options, used after CXXFLAGS and CPPFLAGS.
 INC := -Isrc -Iinclude $(shell pkg-config --cflags x11 sdl2 glew SDL2_image SDL2_ttf libpng zlib)
+
+ifdef STEAM_RUNTIME_ROOT
+	INC += -I$(STEAM_RUNTIME_ROOT)/include
+endif
 
 # Linker library options.
 LIBS := $(shell pkg-config --libs x11 gl ) \
@@ -73,6 +80,14 @@ ifeq ($(shell { cpp -x c++ -include Box2D/Box2D.h /dev/null \
 	echo $$?),0)
   BASE_CXXFLAGS += -DUSE_BOX2D
   LIBS += -lBox2D
+endif
+
+# libvpx check
+USE_LIBVPX?=$(shell pkg-config --exists vpx && echo yes)
+ifeq ($(USE_LIBVPX),yes)
+	BASE_CXXFLAGS += -DUSE_LIBVPX
+	INC += $(shell pkg-config --cflags vpx)
+	LIBS += $(shell pkg-config --libs vpx)
 endif
 
 TARBALL := /var/www/anura/anura-$(shell date +"%Y%m%d-%H%M").tar.bz2
