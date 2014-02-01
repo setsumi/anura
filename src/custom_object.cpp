@@ -182,8 +182,10 @@ custom_object::custom_object(variant node)
 	vars_->set_object_name(debug_description());
 	tmp_vars_->set_object_name(debug_description());
 
-	properties_requiring_dynamic_initialization_ = type_->properties_requiring_dynamic_initialization();
-	properties_requiring_dynamic_initialization_.insert(properties_requiring_dynamic_initialization_.end(), type_->properties_requiring_initialization().begin(), type_->properties_requiring_initialization().end());
+	if(!created_) {
+		properties_requiring_dynamic_initialization_ = type_->properties_requiring_dynamic_initialization();
+		properties_requiring_dynamic_initialization_.insert(properties_requiring_dynamic_initialization_.end(), type_->properties_requiring_initialization().begin(), type_->properties_requiring_initialization().end());
+	}
 
 	vars_->disallow_new_keys(type_->is_strict());
 	tmp_vars_->disallow_new_keys(type_->is_strict());
@@ -435,21 +437,27 @@ custom_object::custom_object(variant node)
 			continue;
 		}
 
-		properties_requiring_dynamic_initialization_.erase(std::remove(properties_requiring_dynamic_initialization_.begin(), properties_requiring_dynamic_initialization_.end(), i), properties_requiring_dynamic_initialization_.end());
+		bool set = false;
 
 		if(property_data_node.is_map()) {
 			const variant key(e.id);
 			if(property_data_node.has_key(key)) {
 				get_property_data(e.storage_slot) = property_data_node[key];
-				continue;
+				set = true;
 			}
 		}
 
-		if(e.init) {
-			reference_counted_object_pin_norelease pin(this);
-			get_property_data(e.storage_slot) = e.init->execute(*this);
-		} else {
-			get_property_data(e.storage_slot) = deep_copy_variant(e.default_value);
+		if(!set) {
+			if(e.init) {
+				reference_counted_object_pin_norelease pin(this);
+				get_property_data(e.storage_slot) = e.init->execute(*this);
+			} else {
+				get_property_data(e.storage_slot) = deep_copy_variant(e.default_value);
+			}
+		}
+
+		if(!get_property_data(e.storage_slot).is_null()) {
+			properties_requiring_dynamic_initialization_.erase(std::remove(properties_requiring_dynamic_initialization_.begin(), properties_requiring_dynamic_initialization_.end(), i), properties_requiring_dynamic_initialization_.end());
 		}
 	}
 
@@ -493,6 +501,9 @@ custom_object::custom_object(const std::string& type, int x, int y, bool face_ri
 	vertex_location_(-1), texcoord_location_(-1),
 	paused_(false), model_(glm::mat4(1.0f))
 {
+	properties_requiring_dynamic_initialization_ = type_->properties_requiring_dynamic_initialization();
+	properties_requiring_dynamic_initialization_.insert(properties_requiring_dynamic_initialization_.end(), type_->properties_requiring_initialization().begin(), type_->properties_requiring_initialization().end());
+
 	vars_->set_object_name(debug_description());
 	tmp_vars_->set_object_name(debug_description());
 
@@ -696,7 +707,7 @@ void custom_object::validate_properties()
 		if(e.storage_slot >= 0 && e.type && std::count(properties_requiring_dynamic_initialization_.begin(), properties_requiring_dynamic_initialization_.end(), n) == 0) {
 			assert(e.storage_slot < property_data_.size());
 			variant result = property_data_[e.storage_slot];
-			ASSERT_LOG(e.type->match(result), "Object " << debug_description() << " is invalid, property " << e.id << " expected to be " << e.type->to_string() << " but found " << result.write_json() << " which is of type " << get_variant_type_from_value(result)->to_string());
+			ASSERT_LOG(e.type->match(result), "Object " << debug_description() << " is invalid, property " << e.id << " expected to be " << e.type->to_string() << " but found " << result.write_json() << " which is of type " << get_variant_type_from_value(result)->to_string() << " " << properties_requiring_dynamic_initialization_.size());
 			
 		}
 	}
@@ -3305,20 +3316,10 @@ void custom_object::set_value(const std::string& key, const variant& value)
 	}
 
 	std::map<std::string, custom_object_type::property_entry>::const_iterator property_itor = type_->properties().find(key);
-	if(property_itor != type_->properties().end() && property_itor->second.setter) {
-		game_logic::map_formula_callable_ptr callable(new game_logic::map_formula_callable(this));
-		callable->add("value", value);
-
-		active_property_scope scope(*this, property_itor->second.storage_slot, &value);
-		variant value = property_itor->second.setter->execute(*callable);
-		execute_command(value);
-		return;
-	} else if(property_itor != type_->properties().end() && property_itor->second.storage_slot >= 0) {
-		get_property_data(property_itor->second.storage_slot) = value;
+	if(property_itor != type_->properties().end()) {
+		set_value_by_slot(type_->slot_properties_base() + property_itor->second.slot, value);
 		return;
 	}
-
-	ASSERT_LOG(property_itor == type_->properties().end(), "Illegal write to non-writable property " << property_itor->first << " in " << debug_description());
 
 	if(key == "animation") {
 		set_frame(value.as_string());

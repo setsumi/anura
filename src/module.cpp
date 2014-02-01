@@ -673,6 +673,63 @@ COMMAND_LINE_UTILITY(publish_module)
 
 	const variant package = build_package(module_id, increment_version);
 	std::map<variant,variant> attr;
+
+	attr[variant("type")] = variant("prepare_upload_module");
+	attr[variant("module_id")] = variant(module_id);
+
+	{
+		const std::string msg = variant(&attr).write_json();
+		std::string response;
+		bool done = false;
+		bool error = false;
+
+		http_client client(server, port);
+		client.send_request("POST /upload_module", msg, 
+		                    boost::bind(finish_upload, _1, &done, &response),
+		                    boost::bind(error_upload, _1, &error),
+		                    boost::bind(upload_progress, _1, _2, _3));
+
+		while(!done) {
+			client.process();
+			ASSERT_LOG(!error, "Error in upload");
+		}
+
+		variant response_doc(json::parse(response));
+		if(response_doc["status"].as_string() != "ok") {
+			ASSERT_LOG(false, "Error in acquiring lock to upload: " << response);
+		}
+
+		attr[variant("lock_id")] = response_doc["lock_id"];
+
+		std::vector<variant> deletions;
+
+		if(response_doc.has_key("manifest")) {
+			variant their_manifest = response_doc["manifest"];
+			variant our_manifest = package["manifest"];
+			std::vector<variant> keys_to_delete;
+			for(auto p : our_manifest.as_map()) {
+				if(their_manifest.has_key(p.first) && their_manifest[p.first]["md5"] == p.second["md5"]) {
+					keys_to_delete.push_back(p.first);
+				}
+			}
+
+			for(auto key : keys_to_delete) {
+				our_manifest.remove_attr_mutation(key);
+			}
+			
+			for(auto p : their_manifest.as_map()) {
+				if(our_manifest.has_key(p.first) == false) {
+					deletions.push_back(p.first);
+				}
+			}
+		}
+
+		if(!deletions.empty()) {
+			attr[variant("delete")] = variant(&deletions);
+		}
+	}
+
+
 	attr[variant("type")] = variant("upload_module");
 	attr[variant("module")] = package;
 
@@ -680,7 +737,6 @@ COMMAND_LINE_UTILITY(publish_module)
 
 	bool done = false;
 
-	sys::write_file("./upload.txt", msg);
 	std::string* response = NULL;
 
 	http_client client(server, port);
@@ -979,6 +1035,13 @@ COMMAND_LINE_UTILITY(install_module)
 	ASSERT_LOG(doc["status"].as_string() == "ok", "COULD NOT DOWNLOAD MODULE: " << doc["message"]);
 
 	variant module_data = doc["module"];
+
+	if(module_data.has_key("delete")) {
+		for(variant path : module_data["delete"].as_list()) {
+			const std::string path_str = preferences::dlc_path() + "/" + module_id + "/" + path.as_string();
+			sys::remove_file(path_str);
+		}
+	}
 
 	variant manifest = module_data["manifest"];
 	foreach(variant path, manifest.get_keys().as_list()) {
