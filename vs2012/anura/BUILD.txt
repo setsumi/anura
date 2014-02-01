@@ -12,6 +12,7 @@ Project Settings:
 * Linker->General->Additional Library Directories: <inherit from parent or project defaults>
 * Linker->System->SubSystem: Console (/SUBSYSTEM:CONSOLE)
 
+Built binary are hosted on dropbox. Share link: https://www.dropbox.com/sh/zdpuvvdwj9ggeur/b_COuuR8ZY
 
 [DEPRECATED]
 No console:
