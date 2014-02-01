@@ -35,6 +35,7 @@ modules/*
 !modules/phydemo
 !modules/projection_test
 
+anura.exe
 MacOS
 savedata
 xcuserdata
