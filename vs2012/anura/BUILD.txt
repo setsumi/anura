@@ -12,9 +12,15 @@ Project Settings:
 * Linker->General->Additional Library Directories: <inherit from parent or project defaults>
 * Linker->System->SubSystem: Console (/SUBSYSTEM:CONSOLE)
 
+
+[INFORMATION]
 Built binary are hosted on dropbox. Share link: https://www.dropbox.com/sh/zdpuvvdwj9ggeur/b_COuuR8ZY
 
-[DEPRECATED]
+Latest (shoud be) builds of librsvg and others
+http://sourceforge.net/projects/ezwinports/files/
+
+
+[DISCARDED_STUFF]
 No console:
 * Linker->System->SubSystem: Windows (/SUBSYSTEM:WINDOWS)
 
