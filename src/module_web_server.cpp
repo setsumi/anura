@@ -76,6 +76,7 @@ void module_web_server::handle_post(socket_ptr socket, variant doc, const http::
 				variant current_version = doc["current_version"];
 				if(data_[module_id]["version"] <= current_version) {
 					send_msg(socket, "text/json", "{ status: \"no_newer_module\" }", "");
+					return;
 				}
 			}
 
@@ -89,6 +90,17 @@ void module_web_server::handle_post(socket_ptr socket, variant doc, const http::
 						variant their_manifest = doc["manifest"];
 						variant module = json::parse(contents);
 						variant our_manifest = module["manifest"];
+
+						std::vector<variant> deletions;
+						for(auto p : their_manifest.as_map()) {
+							if(!our_manifest.has_key(p.first)) {
+								deletions.push_back(p.first);
+							}
+						}
+
+						if(!deletions.empty()) {
+							module.add_attr_mutation(variant("delete"), variant(&deletions));
+						}
 
 						std::vector<variant> matches;
 
@@ -108,17 +120,6 @@ void module_web_server::handle_post(socket_ptr socket, variant doc, const http::
 
 						for(variant match : matches) {
 							our_manifest.remove_attr_mutation(match);
-						}
-
-						std::vector<variant> deletions;
-						for(auto p : their_manifest.as_map()) {
-							if(!our_manifest.has_key(p.first)) {
-								deletions.push_back(p.first);
-							}
-						}
-
-						if(!deletions.empty()) {
-							module.add_attr_mutation(variant("delete"), variant(&deletions));
 						}
 
 						contents = module.write_json();
