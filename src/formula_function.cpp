@@ -53,6 +53,7 @@
 #include "geometry.hpp"
 #include "hex_map.hpp"
 #include "lua_iface.hpp"
+#include "rectangle_rotator.hpp"
 #include "string_utils.hpp"
 #include "unit_test.hpp"
 #include "variant_callable.hpp"
@@ -381,6 +382,17 @@ FUNCTION_ARGS_DEF
 	ARG_TYPE("int");
 	RETURN_TYPE("object");
 END_FUNCTION_DEF(create_cache)
+
+FUNCTION_DEF(global_cache, 0, 1, "create_cache(max_entries=4096): makes an FFL cache object")
+	int max_entries = 4096;
+	if(args().size() >= 1) {
+		max_entries = args()[0]->evaluate(variables).as_int();
+	}
+	return variant(new ffl_cache(max_entries));
+FUNCTION_ARGS_DEF
+	ARG_TYPE("int");
+	RETURN_TYPE("object");
+END_FUNCTION_DEF(global_cache)
 
 FUNCTION_DEF(query_cache, 3, 3, "query_cache(ffl_cache, key, expr): ")
 	const variant key = args()[1]->evaluate(variables);
@@ -1232,6 +1244,10 @@ END_FUNCTION_DEF(regex_match)
 
 namespace {
 class variant_comparator : public formula_callable {
+	//forbid these so they can't be passed by value.
+	variant_comparator(const variant_comparator&);
+	void operator=(const variant_comparator&);
+
 	expression_ptr expr_;
 	const formula_callable* fallback_;
 	mutable variant a_, b_;
@@ -1415,21 +1431,29 @@ FUNCTION_ARGS_DEF
 	ARG_TYPE("[list]");
 END_FUNCTION_DEF(unzip)
 
-FUNCTION_DEF(zip, 3, 3, "zip(list1, list2, expr) -> list")
+FUNCTION_DEF(zip, 2, 3, "zip(list1, list2, expr=null) -> list")
 	const variant item1 = args()[0]->evaluate(variables);
 	const variant item2 = args()[1]->evaluate(variables);
 
 	ASSERT_LOG(item1.type() == item2.type(), "zip function arguments must both be the same type.");
 	ASSERT_LOG(item1.is_list() || item1.is_map(), "zip function arguments must be either lists or maps");
 
-	boost::intrusive_ptr<variant_comparator> callable(new variant_comparator(args()[2], variables));
+	boost::intrusive_ptr<variant_comparator> callable;
+	
+	if(args().size() > 2) {
+		callable.reset(new variant_comparator(args()[2], variables));
+	}
 	const int size = std::min(item1.num_elements(), item2.num_elements());
 
 	if(item1.is_list()) {
 		std::vector<variant> result;
 		// is list
 		for(int n = 0; n < size; ++n) {
-			result.push_back(callable->eval(item1[n], item2[n]));
+			if(callable) {
+				result.push_back(callable->eval(item1[n], item2[n]));
+			} else {
+				result.push_back(item1[n] + item2[n]);
+			}
 		}
 		return variant(&result);
 	} else {
@@ -1437,7 +1461,11 @@ FUNCTION_DEF(zip, 3, 3, "zip(list1, list2, expr) -> list")
 		variant keys = item2.get_keys();
 		for(int n = 0; n != keys.num_elements(); n++) {
 			if(retMap[keys[n]].is_null() == false) {
-				retMap[keys[n]] = callable->eval(retMap[keys[n]], item2[keys[n]]);
+				if(callable) {
+					retMap[keys[n]] = callable->eval(retMap[keys[n]], item2[keys[n]]);
+				} else {
+					retMap[keys[n]] = retMap[keys[n]] + item2[keys[n]];
+				}
 			} else {
 				retMap[keys[n]] = item2[keys[n]];
 			}
@@ -1451,6 +1479,13 @@ FUNCTION_ARGS_DEF
 FUNCTION_TYPE_DEF
 	variant_type_ptr type_a = args()[0]->query_variant_type();
 	variant_type_ptr type_b = args()[1]->query_variant_type();
+
+	if(args().size() <= 2) {
+		std::vector<variant_type_ptr> v;
+		v.push_back(type_a);
+		v.push_back(type_b);
+		return variant_type::get_union(v);
+	}
 
 	if(type_a->is_specific_list() && type_b->is_specific_list()) {
 		std::vector<variant_type_ptr> types;
@@ -1674,7 +1709,7 @@ FUNCTION_DEF(sort, 1, 2, "sort(list, criteria): Returns a nicely-ordered list. I
 		std::sort(vars.begin(), vars.end());
 	} else {
 		boost::intrusive_ptr<variant_comparator> comparator(new variant_comparator(args()[1], variables));
-		std::sort(vars.begin(), vars.end(), *comparator);
+		std::sort(vars.begin(), vars.end(), [=](const variant& a, const variant& b) { return (*comparator)(a,b); });
 	}
 
 	return variant(&vars);
@@ -3471,27 +3506,17 @@ END_FUNCTION_DEF(debug)
 namespace {
 void debug_side_effect(variant v)
 {
-	if(v.is_list()) {
-		foreach(variant item, v.as_list()) {
-			debug_side_effect(item);
-		}
-	} else if(v.is_callable() && v.try_convert<game_logic::command_callable>()) {
-		map_formula_callable_ptr obj(new map_formula_callable);
-		v.try_convert<game_logic::command_callable>()->run_command(*obj);
-	} else {
-		std::string s = v.to_debug_string();
+
+	std::string s = v.to_debug_string();
 #ifndef NO_EDITOR
-		debug_console::add_message(s);
+	debug_console::add_message(s);
 #endif
-		std::cerr << "CONSOLE: " << s << "\n";
-	}
+	std::cerr << "CONSOLE: " << s << "\n";
 }
 }
 
 FUNCTION_DEF(dump, 1, 2, "dump(msg[, expr]): evaluates and returns expr. Will print 'msg' to stderr if it's printable, or execute it if it's an executable command.")
-	if(preferences::debug()) {
-		debug_side_effect(args().front()->evaluate(variables));
-	}
+	debug_side_effect(args().front()->evaluate(variables));
 	variant res = args().back()->evaluate(variables);
 
 	return res;
@@ -3685,7 +3710,7 @@ FUNCTION_TYPE_DEF
 	return parse_variant_type(variant("string|null"));
 END_FUNCTION_DEF(write_document)
 
-FUNCTION_DEF(get_document, 1, 2, "get_document(string filename, [string] flags): return reference to the given JSON document. flags can contain 'null_on_failure' and 'user_preferences_dir'")
+FUNCTION_DEF(get_document, 1, 2, "get_document(string filename, [enum {'null_on_failure', 'user_preferences_dir'}] flags): return reference to the given JSON document. flags can contain 'null_on_failure' and 'user_preferences_dir'")
 
 	if(args().size() != 1) {
 		formula::fail_if_static_context();
@@ -4598,6 +4623,43 @@ END_FUNCTION_DEF(draw_primitive)
 #endif
 
 }
+
+FUNCTION_DEF(rotate_rect, 4, 4, "rotate_rect(int center_x, int center_y, decimal rotation, int[8] rect) -> int[8]: rotates rect and returns the result")
+
+	int center_x = args()[0]->evaluate(variables).as_int();
+	int center_y = args()[1]->evaluate(variables).as_int();
+	float rotate = args()[2]->evaluate(variables).as_decimal().as_float();
+
+	variant v = args()[3]->evaluate(variables);
+
+	ASSERT_LE(v.num_elements(), 8);
+	
+	GLshort r[8];
+	for(int n = 0; n != v.num_elements(); ++n) {
+		r[n] = v[n].as_int();
+	}
+
+	for(int n = v.num_elements(); n < 8; ++n) {
+		r[n] = 0;
+	}
+
+	rotate_rect(center_x, center_y, rotate, r);
+
+	std::vector<variant> res;
+	res.reserve(8);
+	for(int n = 0; n != v.num_elements(); ++n) {
+		res.push_back(variant(r[n]));
+	}
+
+	return variant(&res);
+FUNCTION_ARGS_DEF
+	ARG_TYPE("int")
+	ARG_TYPE("int")
+	ARG_TYPE("decimal")
+	ARG_TYPE("[int]")
+RETURN_TYPE("[int]")
+
+END_FUNCTION_DEF(rotate_rect)
 
 
 UNIT_TEST(modulo_operation) {

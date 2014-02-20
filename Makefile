@@ -82,12 +82,26 @@ ifeq ($(shell { cpp -x c++ -include Box2D/Box2D.h /dev/null \
   LIBS += -lBox2D
 endif
 
+#Enable Box2D if found over here, too. … (I'm not very good with makefiles.)
+ifeq ($(shell { cpp -x c++ -include Box2D.h /dev/null \
+    && ld -lbox2d; } >/dev/null 2>/dev/null; \
+    echo $$?),0)
+  BASE_CXXFLAGS += -DUSE_BOX2D
+  LIBS += -lbox2d
+endif
+
 # libvpx check
 USE_LIBVPX?=$(shell pkg-config --exists vpx && echo yes)
 ifeq ($(USE_LIBVPX),yes)
 	BASE_CXXFLAGS += -DUSE_LIBVPX
 	INC += $(shell pkg-config --cflags vpx)
 	LIBS += $(shell pkg-config --libs vpx)
+endif
+
+ifeq ($(USE_SVG),yes)
+	BASE_CXXFLAGS += -DUSE_SVG
+	INC += $(shell pkg-config --cflags librsvg-2.0 cairo)
+	LIBS += $(shell pkg-config --libs librsvg-2.0 cairo freetype2)
 endif
 
 TARBALL := /var/www/anura/anura-$(shell date +"%Y%m%d-%H%M").tar.bz2

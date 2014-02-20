@@ -55,7 +55,11 @@ const variant& get_server_info_file()
 {
 	static variant server_info;
 	if(server_info.is_null()) {
-		server_info = json::parse_from_file("data/server_info.cfg");
+		try {
+			server_info = json::parse_from_file("data/server_info.cfg");
+		} catch(...) {
+			ASSERT_LOG(false, "Could not parse server info file data/server_info.cfg");
+		}
 		server_info.add_attr(variant("type"), variant("server_info"));
 	}
 	return server_info;
@@ -87,7 +91,12 @@ public:
 		int pid_status = 0;
 		const pid_t pid = waitpid(-1, &pid_status, WNOHANG);
 		if(pid < 0) {
-			fprintf(stderr, "ERROR: waitpid() returns error: %d\n", errno);
+			if(errno != ECHILD) {
+				switch(errno) {
+				case EINVAL: fprintf(stderr, "waitpid() had invalid arguments\n"); break;
+				default: fprintf(stderr, "waitpid() returns unknown error: %d\n", errno); break;
+				}
+			}
 		} else if(pid > 0) {
 			auto itor = servers_.find(pid);
 			if(itor == servers_.end()) {
@@ -201,7 +210,7 @@ public:
 
 					std::vector<std::string> args;
 					args.push_back(cmd);
-					args.push_back("--module=citadel");
+					args.push_back("--module=" + module::get_module_name());
 					args.push_back("--utility=tbs_server");
 					args.push_back("--port");
 					args.push_back(formatter() << new_port);

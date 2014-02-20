@@ -998,12 +998,38 @@ private:
 namespace {
 PREF_INT(max_ffl_recursion, 1000, "Maximum depth of FFL recursion");
 int function_recursion_depth = 0;
+
+#define DEBUG_FULL_EXPRESSION_STACKS
+#ifdef DEBUG_FULL_EXPRESSION_STACKS
+std::vector<expression_ptr> g_expr_stack;
+#endif // DEBUG_FULL_EXPRESSION_STACKS
+
+std::string get_expression_stack() {
+	std::ostringstream s;
+#ifdef DEBUG_FULL_EXPRESSION_STACKS
+	s << "NUMBER OF FRAMES: " << g_expr_stack.size() << "\n";
+	for(expression_ptr e : g_expr_stack) {
+		s << "  " << e->str() << " " << e->debug_pinpoint_location() << "\n";
+	}
+
+	s << "OUTPUT FRAMES: " << g_expr_stack.size() << "\n";
+#endif // DEBUG_FULL_EXPRESSION_STACKS
+	return s.str();
+}
+
 struct InfiniteRecursionProtector {
 	explicit InfiniteRecursionProtector(const expression_ptr& expr) {
+#ifdef DEBUG_FULL_EXPRESSION_STACKS
+		g_expr_stack.push_back(expr);
+#endif
 		++function_recursion_depth;
-		ASSERT_LOG(function_recursion_depth < g_max_ffl_recursion, "Recursion too deep. Exceeded limit of " << g_max_ffl_recursion << ". Use --max_ffl_recursion to increase this limit, though the most likely cause of this is infinite recursion. Function: " << expr->str() << "\n\ncall Stack: " << get_call_stack());
+		
+		ASSERT_LOG(function_recursion_depth < g_max_ffl_recursion, "Recursion too deep. Exceeded limit of " << g_max_ffl_recursion << ". Use --max_ffl_recursion to increase this limit, though the most likely cause of this is infinite recursion. Function: " << expr->str() << "\n\ncall Stack: " << get_call_stack() << "\n\n" << get_expression_stack());
 	}
 	~InfiniteRecursionProtector() {
+#ifdef DEBUG_FULL_EXPRESSION_STACKS
+		g_expr_stack.pop_back();
+#endif
 		--function_recursion_depth;
 	}
 };
@@ -1766,6 +1792,24 @@ private:
 				return variant_type::get_list(variant_type::get_union(v));
 			}
 
+			const std::map<variant, variant_type_ptr>* left_specific = left_type->is_specific_map();
+			const std::map<variant, variant_type_ptr>* right_specific = right_type->is_specific_map();
+			if(left_specific && right_specific) {
+				std::map<variant, variant_type_ptr> m = *left_specific;
+				for(auto p : *right_specific) {
+					if(m.count(p.first)) {
+						std::vector<variant_type_ptr> v;
+						v.push_back(m[p.first]);
+						v.push_back(p.second);
+						m[p.first] = variant_type::get_union(v);
+					} else {
+						m[p.first] = p.second;
+					}
+				}
+
+				return variant_type::get_specific_map(m);
+			}
+
 			std::pair<variant_type_ptr,variant_type_ptr> left_map = left_type->is_map_of();
 			std::pair<variant_type_ptr,variant_type_ptr> right_map = right_type->is_map_of();
 			if(left_map.first && right_map.first) {
@@ -2270,7 +2314,7 @@ int operator_precedence(const token& t)
 		precedence_map["."]     = n;
 	}
 	
-	assert(precedence_map.count(std::string(t.begin,t.end)));
+	ASSERT_LOG(precedence_map.count(std::string(t.begin,t.end)), "Unknown precedence for '" << std::string(t.begin,t.end) << "'");
 	return precedence_map[std::string(t.begin,t.end)];
 }
 
@@ -2606,7 +2650,7 @@ struct static_context {
 	static_context() { ++in_static_context; }
 	~static_context() { --in_static_context; }
 };
-		
+
 expression_ptr optimize_expression(expression_ptr result, function_symbol_table* symbols, const_formula_callable_definition_ptr callable_def, bool reduce_to_static)
 {
 	expression_ptr original = result;
@@ -3633,6 +3677,9 @@ int formula::raw_guard_matches(const formula_callable& variables) const
 	return -1;
 }
 
+formula::non_static_context::non_static_context() { old_value_ = in_static_context; in_static_context = 0; }
+formula::non_static_context::~non_static_context() { in_static_context = old_value_; }
+
 variant formula::execute(const formula_callable& variables) const
 {
 	//We want to track the 'last executed' formula in last_executed_formula,
@@ -3793,7 +3840,7 @@ UNIT_TEST(formula_typeof) {
 	TYPEOF_TEST("static_typeof(def(int n) n+5.0)", "function(int) -> decimal");
 	TYPEOF_TEST("static_typeof(def([int] mylist) map(mylist, value+5.0))", "function([int]) -> [decimal]");
 	TYPEOF_TEST("static_typeof(choose([1,2,3]))", "int");
-	TYPEOF_TEST("static_typeof(choose([1,2,'abc',4.5]))", "int|string|decimal");
+	TYPEOF_TEST("static_typeof(choose([1,2,'abc',4.5]))", "string|decimal"); //int is compatible with decimal so gets subsumed by it.
 	TYPEOF_TEST("static_typeof(if(1d6 = 5, 5))", "int|null");
 	TYPEOF_TEST("static_typeof(if(1d6 = 2, 5, 8))", "int");
 	TYPEOF_TEST("static_typeof(if(1d6 = 2, 'abc', 2))", "string|int");
