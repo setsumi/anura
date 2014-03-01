@@ -17,11 +17,18 @@
 #include "graphics.hpp"
 #include "rectangle_rotator.hpp"
 #include <math.h>
-#include <boost/math/special_functions/round.hpp>
+#include <cmath>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 #include "unit_test.hpp"
+
+#if defined(_MSC_VER)
+#include <boost/math/special_functions/round.hpp>
+#define bmround	boost::math::round
+#else
+#define bmround	std::round
+#endif
 
 void rotate_rect(GLshort center_x, GLshort center_y, float rotation, GLshort* rect_vertexes){
 
@@ -98,8 +105,8 @@ point rotate_point_around_origin(int x1, int y1, float alpha){
 	R * (sin(theta)) = x2
 	this collapses the above to:  */
 
-	beta.x = boost::math::iround(x1 * cos(alpha)) - boost::math::iround(y1 * sin(alpha));
-	beta.y = boost::math::iround(y1 * cos(alpha)) + boost::math::iround(x1 * sin(alpha));
+	beta.x = bmround(x1 * cos(alpha)) - bmround(y1 * sin(alpha));
+	beta.y = bmround(y1 * cos(alpha)) + bmround(x1 * sin(alpha));
 
 	return beta;
 }
