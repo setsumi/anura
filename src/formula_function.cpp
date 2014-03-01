@@ -1203,6 +1203,35 @@ FUNCTION_TYPE_DEF
 	return variant_type::get_list(variant_type::get_type(variant::VARIANT_TYPE_DECIMAL));
 END_FUNCTION_DEF(orbit)
 
+
+FUNCTION_DEF(floor, 1, 1, "Returns the smaller near integer. 3.9 -> 3, 3.3 -> 3, 3 -> 3")
+	const float a = args()[0]->evaluate(variables).as_decimal().as_float();
+	return variant(static_cast<int>(floor(a)));
+FUNCTION_ARGS_DEF
+	ARG_TYPE("decimal");
+FUNCTION_TYPE_DEF
+	return variant_type::get_type(variant::VARIANT_TYPE_INT);
+END_FUNCTION_DEF(floor)
+
+FUNCTION_DEF(round, 1, 1, "Returns the smaller near integer. 3.9 -> 3, 3.3 -> 3, 3 -> 3")
+	const float a = args()[0]->evaluate(variables).as_decimal().as_float();
+	return variant(static_cast<int>(round(a)));
+FUNCTION_ARGS_DEF
+	ARG_TYPE("decimal");
+FUNCTION_TYPE_DEF
+	return variant_type::get_type(variant::VARIANT_TYPE_INT);
+END_FUNCTION_DEF(round)
+
+FUNCTION_DEF(ceil, 1, 1, "Returns the smaller near integer. 3.9 -> 3, 3.3 -> 3, 3 -> 3")
+	const float a = args()[0]->evaluate(variables).as_decimal().as_float();
+	return variant(static_cast<int>(ceil(a)));
+FUNCTION_ARGS_DEF
+	ARG_TYPE("decimal");
+FUNCTION_TYPE_DEF
+	return variant_type::get_type(variant::VARIANT_TYPE_INT);
+END_FUNCTION_DEF(ceil)
+
+
 FUNCTION_DEF(regex_replace, 3, 3, "regex_replace(string, string, string) -> string: Unknown.")
 	const std::string str = args()[0]->evaluate(variables).as_string();
 	const boost::regex re(args()[1]->evaluate(variables).as_string());
@@ -3793,7 +3822,16 @@ void function_expression::check_arg_type(int narg, const std::string& type_str) 
 
 	variant_type_ptr provided = args()[narg]->query_variant_type();
 	assert(provided);
-	ASSERT_LOG(variant_types_compatible(type, provided), "Function call argument " << (narg+1) << " does not match. Function expects " << type_str << " provided " << provided->to_string() << " " << debug_pinpoint_location())
+
+	if(!variant_types_compatible(type, provided)) {
+		std::ostringstream reason;
+		variant_types_compatible(type, provided, &reason);
+		std::string msg = reason.str();
+		if(msg.empty() == false) {
+			msg = " (" + msg + ")";
+		}
+		ASSERT_LOG(variant_types_compatible(type, provided), "Function call argument " << (narg+1) << " does not match. Function expects " << type_str << " provided " << provided->to_string() << msg << " " << debug_pinpoint_location())
+	}
 }
 
 formula_function_expression::formula_function_expression(const std::string& name, const args_list& args, const_formula_ptr formula, const_formula_ptr precondition, const std::vector<std::string>& arg_names, const std::vector<variant_type_ptr>& variant_types)

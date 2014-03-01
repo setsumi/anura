@@ -974,8 +974,8 @@ FUNCTION_DEF(screen_flash, 2, 3, "screen_flash(list int[4] color, (optional) lis
 	return variant(cmd);
 FUNCTION_ARGS_DEF
 	ARG_TYPE("[int]")
-	ARG_TYPE("[int]")
-	ARG_TYPE("int")
+	ARG_TYPE("[int]|int")
+	ARG_TYPE("int|null")
 RETURN_TYPE("commands")
 END_FUNCTION_DEF(screen_flash)
 
@@ -3052,6 +3052,82 @@ FUNCTION_DEF(swallow_mouse_event, 0, 0, "swallow_mouse_event(): when used in an 
 	return variant(new swallow_mouse_command_callable);
 RETURN_TYPE("commands")
 END_FUNCTION_DEF(swallow_mouse_event)
+
+FUNCTION_DEF(animate, 3, 3, "animate(object, attributes, options)")
+	const variant obj = args()[0]->evaluate(variables);
+	const variant attr_var = args()[1]->evaluate(variables);
+	const variant options = args()[2]->evaluate(variables);
+
+	std::function<void()> fn = [=]() {
+
+		boost::intrusive_ptr<custom_object> target = obj.convert_to<custom_object>();
+		const std::string type = target->query_value_by_slot(CUSTOM_OBJECT_TYPE).as_string();
+		game_logic::formula_callable_definition_ptr def = custom_object_type::get_definition(type);
+		ASSERT_LOG(def.get() != NULL, "Could not get definition for object: " << type);
+
+		std::vector<int> slots;
+		std::vector<decimal> begin_values, end_values;
+
+		const auto& attr = attr_var.as_map();
+
+		for(const auto& p : attr) {
+			slots.push_back(def->get_slot(p.first.as_string()));
+			ASSERT_LOG(slots.back() >= 0, "Unknown attribute in object: " << p.first.as_string());
+			end_values.push_back(p.second.as_decimal());
+			begin_values.push_back(target->query_value_by_slot(slots.back()).as_decimal());
+		}
+
+		const int ncycles = options["duration"].as_int(10);
+
+		std::function<double(double)> easing_fn;
+		variant easing_var = options["easing"];
+		if(easing_var.is_function()) {
+			easing_fn = [=](double x) { std::vector<variant> args; args.push_back(variant(decimal(x))); return easing_var(args).as_decimal().as_float(); };
+		} else {
+			const std::string& easing = easing_var.as_string_default("swing");
+			if(easing == "linear") {
+				easing_fn = [](double x) { return x; };
+			} else if(easing == "swing") {
+				easing_fn = [](double x) { return 0.5*(1 - cos(x*3.14)); };
+			} else {
+				ASSERT_LOG(false, "Unknown easing: " << easing);
+			}
+		}
+
+		std::vector<variant> values;
+		values.reserve(slots.size()*ncycles);
+
+		for(int cycle = 0; cycle != ncycles; ++cycle) {
+			GLfloat ratio = 1.0;
+			if(cycle < ncycles-1) {
+				ratio = GLfloat(cycle)/GLfloat(ncycles-1);
+				ratio = easing_fn(ratio);
+			}
+			for(int n = 0; n != slots.size(); ++n) {
+				decimal value = decimal(end_values[n].as_float()*ratio + begin_values[n].as_float()*(1.0-ratio));
+				values.push_back(variant(value));
+			}
+		}
+
+		boost::shared_ptr<custom_object::AnimatedMovement> movement(new custom_object::AnimatedMovement);
+		movement->name = options["name"].as_string_default("");
+		movement->animation_values.swap(values);
+		movement->animation_slots.swap(slots);
+
+		movement->on_process = options["on_process"];
+		movement->on_complete = options["on_complete"];
+
+		target->set_animated_schedule(movement);
+	};
+
+	return variant(new fn_command_callable(fn));
+
+FUNCTION_ARGS_DEF
+	ARG_TYPE("custom_obj")
+	ARG_TYPE("map")
+	ARG_TYPE("{on_process: null|commands, on_complete: null|commands, name: null|string, easing: null|string|function(decimal)->decimal, duration: null|int}")
+RETURN_TYPE("commands")
+END_FUNCTION_DEF(animate)
 
 class set_widgets_command : public entity_command_callable {
 	const entity_ptr target_;

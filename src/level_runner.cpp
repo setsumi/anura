@@ -25,6 +25,7 @@
 
 #include "background_task_pool.hpp"
 #include "base64.hpp"
+#include "clipboard.hpp"
 #include "collision_utils.hpp"
 #include "controls.hpp"
 #include "custom_object.hpp"
@@ -120,7 +121,8 @@ void done_upload_screenshot(boost::shared_ptr<upload_screenshot_info> info)
 		if(info->error == false) {
 			fprintf(stderr, "DONE UPLOAD SCREENSHOT (%s)\n", info->result.c_str());
 			variant v = json::parse(info->result, json::JSON_NO_PREPROCESSOR);
-			debug_console::add_message(formatter() << "Uploaded screenshot to " << v["url"].as_string());;
+			debug_console::add_message(formatter() << "Uploaded screenshot to " << v["url"].as_string() << " (set url in clipboard)");;
+			copy_to_clipboard(v["url"].as_string(), true);
 		}
 	} catch(...) {
 		info->error = true;
@@ -569,7 +571,12 @@ bool level_runner::handle_mouse_events(const SDL_Event &event)
 						mouse_in.insert(e);
 					}
 
-					handled |= e->handle_event(basic_evt, callable.get());
+					if(e->is_mouse_over_entity() || basic_evt != MouseMoveEventID) {
+						//only give mouse move events if we've actually
+						//recordered a mouse_enter event.
+						handled |= e->handle_event(basic_evt, callable.get());
+					}
+
 					if(event_type == SDL_MOUSEBUTTONUP && !click_handled && e->is_being_dragged() == false) {
 						e->handle_event(MouseClickID, callable.get());
 						if((*it)->mouse_event_swallowed()) {
@@ -634,33 +641,35 @@ bool level_runner::handle_mouse_events(const SDL_Event &event)
 					std::sort(level_chars.begin(), level_chars.end(), zorder_compare);
 					std::reverse(level_chars.begin(), level_chars.end());
 					foreach(const entity_ptr& e, level_chars) {
-						if(e) {
-							// n.b. mouse_over_area is relative to the object.
-							rect m_area = e->mouse_over_area();
-							m_area += e->midpoint();
-							bool has_m_area = m_area.w() != 0;
-							point p(x,y);
-							if(e->use_absolute_screen_coordinates()) {
-								p = point(mx,my);
-							}
+						if(!e) {
+							continue;
+						}
 
-							if(mouse_in.find(e) == mouse_in.end()) {
-								e->set_mouseover_trigger_cycle(INT_MAX);
-							}
+						// n.b. mouse_over_area is relative to the object.
+						rect m_area = e->mouse_over_area();
+						m_area += e->midpoint();
+						bool has_m_area = m_area.w() != 0;
+						point p(x,y);
+						if(e->use_absolute_screen_coordinates()) {
+							p = point(mx,my);
+						}
 
-							if(mouse_in.find(e) == mouse_in.end()) {
-								if(has_m_area == false) {
-									if(e->is_mouse_over_entity()) {
-										e->handle_event(MouseLeaveID, callable.get());
-										e->set_mouse_over_entity(false);
-									}
-								} else {
-									if(point_in_rect(p, m_area) == false && e->is_mouse_over_entity()) {
-										e->handle_event(MouseLeaveID, callable.get());
-										e->set_mouse_over_entity(false);
-									}
-								}								
-							}
+						if(mouse_in.find(e) == mouse_in.end()) {
+							e->set_mouseover_trigger_cycle(INT_MAX);
+						}
+
+						if(mouse_in.find(e) == mouse_in.end()) {
+							if(has_m_area == false) {
+								if(e->is_mouse_over_entity()) {
+									e->handle_event(MouseLeaveID, callable.get());
+									e->set_mouse_over_entity(false);
+								}
+							} else {
+								if(point_in_rect(p, m_area) == false && e->is_mouse_over_entity()) {
+									e->handle_event(MouseLeaveID, callable.get());
+									e->set_mouse_over_entity(false);
+								}
+							}								
 						}
 					}
 				}

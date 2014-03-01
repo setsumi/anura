@@ -199,7 +199,7 @@ custom_object::custom_object(variant node)
 
 	if(node.has_key("x_schedule")) {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 		}
 
 		if(node["x_schedule"].is_string()) {
@@ -212,7 +212,7 @@ custom_object::custom_object(variant node)
 
 	if(node.has_key("y_schedule")) {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 		}
 
 		if(node["y_schedule"].is_string()) {
@@ -225,7 +225,7 @@ custom_object::custom_object(variant node)
 
 	if(node.has_key("rotation_schedule")) {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 		}
 
 		position_schedule_->rotation = node["rotation_schedule"].as_list_decimal();	
@@ -1635,6 +1635,31 @@ void custom_object::process(level& lvl)
 		execute_command(cmd);
 	}
 
+	for(auto& move : animated_movement_) {
+		if(move->pos >= move->animation_frames()) {
+			if(move->on_complete.is_null() == false) {
+				execute_command(move->on_complete);
+			}
+
+			move.reset();
+		} else {
+			ASSERT_LOG(move->animation_values.size()%move->animation_slots.size() == 0, "Bad animation sizes");
+			variant* v = &move->animation_values[0] + move->pos*move->animation_slots.size();
+
+			for(int n = 0; n != move->animation_slots.size(); ++n) {
+				mutate_value_by_slot(move->animation_slots[n], v[n]);
+			}
+
+			if(move->on_process.is_null() == false) {
+				execute_command(move->on_process);
+			}
+
+			move->pos++;
+		}
+	}
+
+	animated_movement_.erase(std::remove(animated_movement_.begin(), animated_movement_.end(), boost::shared_ptr<AnimatedMovement>()), animated_movement_.end());
+
 	if(position_schedule_.get() != NULL) {
 		const int pos = (cycle_ - position_schedule_->base_cycle)/position_schedule_->speed;
 
@@ -2617,6 +2642,27 @@ void custom_object::being_added()
 	}
 #endif
 	handle_event(OBJECT_EVENT_BEING_ADDED);
+}
+
+void custom_object::set_animated_schedule(boost::shared_ptr<AnimatedMovement> movement)
+{
+	animated_movement_.push_back(movement);
+}
+
+void custom_object::cancel_animated_schedule(const std::string& name)
+{
+	if(name.empty()) {
+		animated_movement_.clear();
+		return;
+	}
+
+	for(auto& p : animated_movement_) {
+		if(name == p->name) {
+			p.reset();
+		}
+	}
+
+	animated_movement_.erase(std::remove(animated_movement_.begin(), animated_movement_.end(), boost::shared_ptr<AnimatedMovement>()), animated_movement_.end());
 }
 
 namespace {
@@ -4276,7 +4322,7 @@ void custom_object::set_value_by_slot(int slot, const variant& value)
 
 	case CUSTOM_OBJECT_X_SCHEDULE: {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 			position_schedule_->base_cycle = cycle_;
 		}
 
@@ -4288,7 +4334,7 @@ void custom_object::set_value_by_slot(int slot, const variant& value)
 	}
 	case CUSTOM_OBJECT_Y_SCHEDULE: {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 			position_schedule_->base_cycle = cycle_;
 		}
 
@@ -4300,7 +4346,7 @@ void custom_object::set_value_by_slot(int slot, const variant& value)
 	}
 	case CUSTOM_OBJECT_ROTATION_SCHEDULE: {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 			position_schedule_->base_cycle = cycle_;
 		}
 
@@ -4313,7 +4359,7 @@ void custom_object::set_value_by_slot(int slot, const variant& value)
 
 	case CUSTOM_OBJECT_SCHEDULE_SPEED: {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 			position_schedule_->base_cycle = cycle_;
 		}
 
@@ -4324,7 +4370,7 @@ void custom_object::set_value_by_slot(int slot, const variant& value)
 
 	case CUSTOM_OBJECT_SCHEDULE_EXPIRES: {
 		if(position_schedule_.get() == NULL) {
-			position_schedule_.reset(new position_schedule);
+			position_schedule_.reset(new PositionSchedule);
 			position_schedule_->base_cycle = cycle_;
 		}
 

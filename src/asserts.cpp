@@ -103,12 +103,14 @@ validation_failure_exception::validation_failure_exception(const std::string& m)
   : msg(m)
 {
 	std::cerr << "ASSERT FAIL: " << m << "\n";
+	output_backtrace();
 }
 
 fatal_assert_failure_exception::fatal_assert_failure_exception(const std::string& m)
   : msg(m)
 {
 	std::cerr << "ASSERT FAIL: " << m << "\n";
+	output_backtrace();
 }
 
 namespace {
@@ -155,10 +157,11 @@ void output_backtrace()
 	StderrStackWalker sw; 
 	sw.ShowCallstack();
 #else
-	const int nframes = 256;
-	void* trace_buffer[nframes];
-	const int nsymbols = backtrace(trace_buffer, nframes);
-	backtrace_symbols_fd(trace_buffer, nsymbols, 2);
+// disable C++ stack traces for now.
+//	const int nframes = 256;
+//	void* trace_buffer[nframes];
+//	const int nsymbols = backtrace(trace_buffer, nframes);
+//	backtrace_symbols_fd(trace_buffer, nsymbols, 2);
 #endif
 	std::cerr << "---\n";
 }

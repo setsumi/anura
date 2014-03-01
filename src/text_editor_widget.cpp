@@ -220,7 +220,7 @@ text_editor_widget::text_editor_widget(const variant& v, game_logic::formula_cal
 		height = char_height_ + BorderSize*2;
 		nrows_ = 1;
 		ncols_ = width/char_width_;
-		widget::set_dim(width, height);
+		widget::set_dim(width - 20, height);
 	} else {
 		widget::set_dim(width - 20, height);
 	}
@@ -1050,7 +1050,6 @@ bool text_editor_widget::handle_key_press(const SDL_KeyboardEvent& event)
 		break;
 	}
 	case SDLK_TAB: {
-		fprintf(stderr, "ZZZ: TAB\n");
 		if(on_tab_) {
 			on_tab_();
 		} else if(nrows_ == 1) {
@@ -1601,10 +1600,12 @@ BEGIN_DEFINE_CALLABLE(text_editor_widget, widget)
 		return variant::from_bool(obj.begin_enter_return_);
 	DEFINE_SET_FIELD
 		obj.begin_enter_return_ = value.as_bool();
-	DEFINE_FIELD("color", "string")
+	DEFINE_FIELD(color, "string")
 		return variant("");
 	DEFINE_SET_FIELD
 		obj.text_color_ = graphics::color(value);
+	DEFINE_FIELD(has_focus, "bool")
+		return variant::from_bool(obj.has_focus_);
 END_DEFINE_CALLABLE(text_editor_widget)
 
 void text_editor_widget::change_delegate()
