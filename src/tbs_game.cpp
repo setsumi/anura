@@ -220,7 +220,9 @@ variant game::write(int nplayer) const
 	result.add("started", started_);
 	result.add("state_id", state_id_);
 	result.add("rng_seed", rng_seed_);
-	result.add("nplayer", variant(nplayer));
+
+	//observers see the perspective of the first player for now
+	result.add("nplayer", variant(nplayer < 0 ? 0 : nplayer));
 
 	std::vector<variant> players_val;
 	foreach(const player& p, players_) {
@@ -241,7 +243,7 @@ variant game::write(int nplayer) const
 		variant msg = deep_copy_variant(doc_);
 		game_logic::map_formula_callable_ptr vars(new game_logic::map_formula_callable);
 		vars->add("message", msg);
-		vars->add("nplayer", variant(nplayer));
+		vars->add("nplayer", variant(nplayer < 0 ? 0 : nplayer));
 		const_cast<game*>(this)->handle_event("transform", vars.get());
 
 		result.add("state", msg);
@@ -518,7 +520,17 @@ void game::handle_message(int nplayer, const variant& msg)
 		return;
 	} else if(type == "chat_message") {
 		variant m = msg;
-		m.add_attr(variant("nick"), variant(players_[nplayer].name));
+		if(nplayer >= 0) {
+			m.add_attr_mutation(variant("nick"), variant(players_[nplayer].name));
+		} else {
+			std::string nick = "observer";
+			if(m.has_key(variant("nick"))) {
+				nick = m["nick"].as_string();
+				nick += " (obs)";
+			}
+
+			m.add_attr_mutation(variant("nick"), variant(nick));
+		}
 		queue_message(m);
 		return;
 	}
